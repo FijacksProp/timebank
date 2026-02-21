@@ -1,12 +1,15 @@
+import json
+
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView
-from django.db.models import Avg
+from django.db.models import Avg, Count, Q
 from django.shortcuts import redirect, render
 
 from accounts.forms import OnboardingForm, SignUpForm
 from accounts.models import Profile
 from matching.services import get_credit_balance
+from sessions_app.models import Session
 from skills.models import ProfileSkillOffered, ProfileSkillWanted, Skill
 
 
@@ -96,6 +99,44 @@ def dashboard(request):
     teaching = profile.sessions_as_teacher.filter(status='accepted').order_by('scheduled_at')[:3]
     rating = profile.reviews_received.aggregate(avg=Avg('rating'))['avg']
 
+    offered_skills = profile.offered_skills.select_related('skill').all()
+    wanted_skills = profile.wanted_skills.select_related('skill').all()
+    my_sessions = Session.objects.filter(Q(teacher=profile) | Q(learner=profile))
+    personal_stats = {
+        'total_sessions': my_sessions.count(),
+        'completed_sessions': my_sessions.filter(status=Session.STATUS_COMPLETED).count(),
+        'reviews_received': profile.reviews_received.count(),
+    }
+
+    status_order = [
+        Session.STATUS_REQUESTED,
+        Session.STATUS_ACCEPTED,
+        Session.STATUS_DECLINED,
+        Session.STATUS_COMPLETED,
+        Session.STATUS_CANCELLED,
+    ]
+    status_map = {item['status']: item['total'] for item in my_sessions.values('status').annotate(total=Count('id'))}
+    sessions_chart = {
+        'labels': [status.replace('_', ' ').title() for status in status_order],
+        'values': [status_map.get(status, 0) for status in status_order],
+    }
+
+    running_balance = 0
+    credit_labels = []
+    credit_values = []
+    for entry in profile.credit_entries.order_by('created_at'):
+        running_balance += entry.delta
+        credit_labels.append(entry.created_at.strftime('%b %d'))
+        credit_values.append(running_balance)
+    if not credit_labels:
+        credit_labels = ['Now']
+        credit_values = [0]
+
+    credits_chart = {
+        'labels': credit_labels[-12:],
+        'values': credit_values[-12:],
+    }
+
     return render(
         request,
         'dashboard.html',
@@ -105,5 +146,10 @@ def dashboard(request):
             'upcoming': upcoming,
             'teaching': teaching,
             'rating': rating,
+            'offered_skills': offered_skills,
+            'wanted_skills': wanted_skills,
+            'personal_stats': personal_stats,
+            'sessions_chart': json.dumps(sessions_chart),
+            'credits_chart': json.dumps(credits_chart),
         },
     )

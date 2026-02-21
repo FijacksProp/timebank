@@ -22,3 +22,20 @@ Thumbs.db
 
 # Local planning/docs
 TODO.md
+
+# Frontend (Next.js)
+time_bank_ui/node_modules/
+time_bank_ui/.next/
+time_bank_ui/.turbo/
+time_bank_ui/out/
+time_bank_ui/coverage/
+time_bank_ui/*.log
+time_bank_ui/npm-debug.log*
+time_bank_ui/yarn-debug.log*
+time_bank_ui/yarn-error.log*
+time_bank_ui/pnpm-debug.log*
+time_bank_ui/.env.local
+time_bank_ui/.env.development.local
+time_bank_ui/.env.test.local
+time_bank_ui/.env.production.local
+time_bank_ui/*.tsbuildinfo
