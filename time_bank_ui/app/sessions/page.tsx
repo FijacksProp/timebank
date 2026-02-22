@@ -1,4 +1,8 @@
+"use client"
+
 import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { StatusBadge } from "@/components/status-badge"
@@ -6,31 +10,25 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowRight, Calendar, BookOpen, GraduationCap } from "lucide-react"
+import { apiRequest } from "@/lib/api"
 
-interface SessionItem {
-  id: string
-  skill: string
-  partner: string
-  partnerInitials: string
-  date: string
-  status: string
-  credits: number
+type ApiSession = {
+  id: number;
+  skill: { id: number; name: string };
+  partner: { id: number; name: string };
+  status: string;
+  scheduled_at: string | null;
+  duration_min: number;
 }
 
-const learnerSessions: SessionItem[] = [
-  { id: "1", skill: "React Advanced Patterns", partner: "Marcus L.", partnerInitials: "ML", date: "Mar 12, 2026", status: "accepted", credits: 2 },
-  { id: "2", skill: "Data Visualization", partner: "Yuki T.", partnerInitials: "YT", date: "Mar 14, 2026", status: "requested", credits: 1 },
-  { id: "5", skill: "Python Basics", partner: "Raj P.", partnerInitials: "RP", date: "Feb 28, 2026", status: "completed", credits: 2 },
-  { id: "6", skill: "Marketing Strategy", partner: "Sofia M.", partnerInitials: "SM", date: "Feb 20, 2026", status: "declined", credits: 1 },
-]
+function initialsFromName(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "TB"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+}
 
-const teacherSessions: SessionItem[] = [
-  { id: "3", skill: "UX Research Methods", partner: "Ana R.", partnerInitials: "AR", date: "Mar 13, 2026", status: "accepted", credits: 2 },
-  { id: "4", skill: "Design Systems", partner: "Alex K.", partnerInitials: "AK", date: "Mar 10, 2026", status: "completed", credits: 2 },
-  { id: "7", skill: "Figma Basics", partner: "Priya S.", partnerInitials: "PS", date: "Feb 15, 2026", status: "cancelled", credits: 1 },
-]
-
-function SessionRow({ session }: { session: SessionItem }) {
+function SessionRow({ session }: { session: ApiSession }) {
   return (
     <Link
       href={`/sessions/${session.id}`}
@@ -38,18 +36,18 @@ function SessionRow({ session }: { session: SessionItem }) {
     >
       <Avatar className="h-10 w-10 shrink-0">
         <AvatarFallback className="bg-secondary text-xs text-secondary-foreground">
-          {session.partnerInitials}
+          {initialsFromName(session.partner.name)}
         </AvatarFallback>
       </Avatar>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-foreground">{session.skill}</p>
-        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{session.partner}</span>
+        <p className="truncate text-sm font-semibold text-foreground">{session.skill.name}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>{session.partner.name}</span>
           <span>|</span>
           <Calendar className="h-3 w-3" />
-          <span>{session.date}</span>
+          <span>{session.scheduled_at ? new Date(session.scheduled_at).toLocaleString() : "Date not set"}</span>
           <span>|</span>
-          <span>{session.credits} credits</span>
+          <span>{session.duration_min} min</span>
         </div>
       </div>
       <StatusBadge status={session.status} />
@@ -58,7 +56,10 @@ function SessionRow({ session }: { session: SessionItem }) {
   )
 }
 
-function SessionList({ sessions }: { sessions: SessionItem[] }) {
+function SessionList({ sessions }: { sessions: ApiSession[] }) {
+  if (sessions.length === 0) {
+    return <p className="text-sm text-muted-foreground">No sessions yet.</p>
+  }
   return (
     <div className="flex flex-col gap-3">
       {sessions.map((s) => (
@@ -69,52 +70,85 @@ function SessionList({ sessions }: { sessions: SessionItem[] }) {
 }
 
 export default function SessionsPage() {
+  const router = useRouter()
+  const [learnerSessions, setLearnerSessions] = useState<ApiSession[]>([])
+  const [teacherSessions, setTeacherSessions] = useState<ApiSession[]>([])
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const payload = await apiRequest<{ as_learner: ApiSession[]; as_teacher: ApiSession[] }>("sessions/")
+        if (!mounted) return
+        setLearnerSessions(payload.as_learner)
+        setTeacherSessions(payload.as_teacher)
+      } catch (err) {
+        if (!mounted) return
+        const message = err instanceof Error ? err.message : "Failed to load sessions."
+        setError(message)
+        if (message.toLowerCase().includes("authentication")) {
+          router.push("/login")
+        }
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    })()
+    return () => {
+      mounted = false
+    }
+  }, [router])
+
+  const defaultTab = useMemo(() => (learnerSessions.length >= teacherSessions.length ? "learner" : "teacher"), [learnerSessions.length, teacherSessions.length])
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
-      <main className="flex-1 bg-background px-6 py-10">
+      <main className="flex-1 bg-background px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-5xl">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              My Sessions
-            </h1>
-            <p className="mt-1 text-muted-foreground">
-              Track all your learning and teaching sessions in one place.
-            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">My Sessions</h1>
+            <p className="mt-1 text-muted-foreground">Track all your learning and teaching sessions in one place.</p>
           </div>
 
-          <Tabs defaultValue="learner">
-            <TabsList className="mb-6">
-              <TabsTrigger value="learner" className="gap-2">
-                <BookOpen className="h-4 w-4" />
-                As Learner
-              </TabsTrigger>
-              <TabsTrigger value="teacher" className="gap-2">
-                <GraduationCap className="h-4 w-4" />
-                As Teacher
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="learner">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Sessions as Learner</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <SessionList sessions={learnerSessions} />
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="teacher">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Sessions as Teacher</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <SessionList sessions={teacherSessions} />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+          {loading && <p className="mb-4 text-sm text-muted-foreground">Loading sessions...</p>}
+          {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
+
+          {!loading && (
+            <Tabs defaultValue={defaultTab}>
+              <TabsList className="mb-6 flex h-auto w-full flex-wrap sm:w-auto">
+                <TabsTrigger value="learner" className="gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  As Learner
+                </TabsTrigger>
+                <TabsTrigger value="teacher" className="gap-2">
+                  <GraduationCap className="h-4 w-4" />
+                  As Teacher
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="learner">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Sessions as Learner</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <SessionList sessions={learnerSessions} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="teacher">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Sessions as Teacher</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <SessionList sessions={teacherSessions} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          )}
         </div>
       </main>
       <Footer />

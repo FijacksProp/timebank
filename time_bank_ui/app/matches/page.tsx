@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { MatchCard } from "@/components/match-card"
@@ -22,6 +23,8 @@ type MatchItem = {
   score: number;
   reasons: string[];
   reciprocal_skills: Array<{ id: number; name: string }>;
+  offered_skills: Array<{ id: number; name: string }>;
+  wanted_skills: Array<{ id: number; name: string }>;
 }
 
 function initialsFromName(name: string) {
@@ -32,6 +35,7 @@ function initialsFromName(name: string) {
 }
 
 export default function MatchesPage() {
+  const router = useRouter()
   const [query, setQuery] = useState("")
   const [sortBy, setSortBy] = useState("score")
   const [matches, setMatches] = useState<MatchItem[]>([])
@@ -46,7 +50,13 @@ export default function MatchesPage() {
         const payload = await apiRequest<{ matches: MatchItem[] }>("matches/")
         if (mounted) setMatches(payload.matches)
       } catch (err) {
-        if (mounted) setError(err instanceof Error ? err.message : "Failed to load matches.")
+        if (mounted) {
+          const message = err instanceof Error ? err.message : "Failed to load matches."
+          setError(message)
+          if (message.toLowerCase().includes("authentication")) {
+            router.push("/login")
+          }
+        }
       } finally {
         if (mounted) setLoading(false)
       }
@@ -55,7 +65,7 @@ export default function MatchesPage() {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [router])
 
   async function handleRequest(profileId: number, skillId: number) {
     setNotice("")
@@ -77,7 +87,9 @@ export default function MatchesPage() {
         (m) =>
           m.name.toLowerCase().includes(query.toLowerCase()) ||
           m.bio.toLowerCase().includes(query.toLowerCase()) ||
-          m.reciprocal_skills.some((s) => s.name.toLowerCase().includes(query.toLowerCase()))
+          m.reciprocal_skills.some((s) => s.name.toLowerCase().includes(query.toLowerCase())) ||
+          m.offered_skills.some((s) => s.name.toLowerCase().includes(query.toLowerCase())) ||
+          m.wanted_skills.some((s) => s.name.toLowerCase().includes(query.toLowerCase()))
       )
       .sort((a, b) => (sortBy === "score" ? b.score - a.score : a.name.localeCompare(b.name)))
   }, [matches, query, sortBy])
@@ -85,10 +97,10 @@ export default function MatchesPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
-      <main className="flex-1 bg-background px-6 py-10">
+      <main className="flex-1 bg-background px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-7xl">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Your Matches</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Your Matches</h1>
             <p className="mt-1 text-muted-foreground">
               People whose skills complement yours. The higher the score, the better the fit.
             </p>
@@ -107,7 +119,7 @@ export default function MatchesPage() {
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-44">
+                <SelectTrigger className="w-full sm:w-44">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -133,7 +145,9 @@ export default function MatchesPage() {
                   score={m.score}
                   bio={m.bio}
                   reasons={m.reasons}
-                  skills={m.reciprocal_skills}
+                  offeredSkills={m.offered_skills}
+                  wantedSkills={m.wanted_skills}
+                  reciprocalSkills={m.reciprocal_skills}
                   onRequest={handleRequest}
                 />
               ))}
@@ -155,4 +169,3 @@ export default function MatchesPage() {
     </div>
   )
 }
-

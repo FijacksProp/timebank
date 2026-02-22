@@ -50,6 +50,8 @@ def compute_matches_for_user(profile: Profile):
             continue
 
         reciprocal_skills = list(Skill.objects.filter(id__in=reciprocal_ids).values('id', 'name').order_by('name'))
+        offered_skills = list(Skill.objects.filter(id__in=sorted(list(cand_offered_ids))).values('id', 'name').order_by('name'))
+        wanted_skills = list(Skill.objects.filter(id__in=sorted(list(cand_wanted_ids))).values('id', 'name').order_by('name'))
 
         reasons = []
         if reciprocal_count:
@@ -69,6 +71,8 @@ def compute_matches_for_user(profile: Profile):
                 'score': total,
                 'reasons': reasons[:5],
                 'reciprocal_skills': reciprocal_skills,
+                'offered_skills': offered_skills,
+                'wanted_skills': wanted_skills,
             }
         )
 

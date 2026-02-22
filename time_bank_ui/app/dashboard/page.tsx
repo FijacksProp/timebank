@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { KpiCard } from "@/components/kpi-card"
@@ -59,6 +60,7 @@ type DashboardPayload = {
 }
 
 export default function DashboardPage() {
+  const router = useRouter()
   const [data, setData] = useState<DashboardPayload | null>(null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
@@ -71,7 +73,11 @@ export default function DashboardPage() {
         if (mounted) setData(payload)
       } catch (err) {
         if (mounted) {
-          setError(err instanceof Error ? err.message : "Failed to load dashboard.")
+          const message = err instanceof Error ? err.message : "Failed to load dashboard."
+          setError(message)
+          if (message.toLowerCase().includes("authentication")) {
+            router.push("/login")
+          }
         }
       } finally {
         if (mounted) setLoading(false)
@@ -81,7 +87,7 @@ export default function DashboardPage() {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [router])
 
   const kpis = useMemo(() => {
     if (!data) return []
@@ -112,10 +118,10 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
-      <main className="flex-1 bg-background px-6 py-10">
+      <main className="flex-1 bg-background px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-7xl">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
             <p className="mt-1 text-muted-foreground">
               {data ? `Welcome back, ${data.profile.full_name}. Here is your skill barter overview.` : "Loading your overview..."}
             </p>
@@ -126,7 +132,7 @@ export default function DashboardPage() {
 
           {data && (
             <>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
                 {kpis.map((kpi) => (
                   <KpiCard key={kpi.title} title={kpi.title} value={kpi.value} icon={kpi.icon} description={kpi.description} />
                 ))}

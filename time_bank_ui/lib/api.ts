@@ -1,4 +1,8 @@
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/+$/, "");
+const configuredBase = (process.env.NEXT_PUBLIC_API_BASE_URL || "").trim();
+const localBackendLike = /^https?:\/\/(127\.0\.0\.1|localhost):8000(\/api)?\/?$/i.test(configuredBase);
+const localApiLike = /^\/api\/?$/i.test(configuredBase);
+const shouldUseLocalProxy = !configuredBase || localBackendLike || localApiLike;
+const API_BASE_URL = (shouldUseLocalProxy ? "/dj" : configuredBase).replace(/\/+$/, "");
 
 type RequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -26,10 +30,9 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   }
 
   if (!response.ok) {
-    const message = payload?.detail || "Request failed.";
+    const message = payload?.detail || `Request failed (${response.status})`;
     throw new Error(message);
   }
 
   return payload as T;
 }
-

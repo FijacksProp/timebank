@@ -20,7 +20,9 @@ interface MatchCardProps {
   score: number
   bio: string
   reasons: string[]
-  skills: Array<{ id: number; name: string }>
+  offeredSkills: Array<{ id: number; name: string }>
+  wantedSkills: Array<{ id: number; name: string }>
+  reciprocalSkills: Array<{ id: number; name: string }>
   onRequest: (profileId: number, skillId: number) => Promise<void>
 }
 
@@ -31,7 +33,9 @@ export function MatchCard({
   score,
   bio,
   reasons,
-  skills,
+  offeredSkills,
+  wantedSkills,
+  reciprocalSkills,
   onRequest,
 }: MatchCardProps) {
   const [selectedSkill, setSelectedSkill] = useState("")
@@ -82,15 +86,43 @@ export function MatchCard({
               </li>
             ))}
           </ul>
+          {reciprocalSkills.length > 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Mutual fit: {reciprocalSkills.map((s) => s.name).join(", ")}
+            </p>
+          )}
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Can Teach</p>
+            <div className="flex flex-wrap gap-1.5">
+              {offeredSkills.slice(0, 5).map((skill) => (
+                <span key={skill.id} className="rounded-md bg-secondary px-2 py-0.5 text-xs text-foreground">
+                  {skill.name}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Wants To Learn</p>
+            <div className="flex flex-wrap gap-1.5">
+              {wantedSkills.slice(0, 5).map((skill) => (
+                <span key={skill.id} className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
+                  {skill.name}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="mt-5 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row">
           <Select value={selectedSkill} onValueChange={setSelectedSkill}>
             <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Select a skill" />
+              <SelectValue placeholder="Select a skill to request" />
             </SelectTrigger>
             <SelectContent>
-              {skills.map((skill) => (
+              {offeredSkills.map((skill) => (
                 <SelectItem key={skill.id} value={String(skill.id)}>
                   {skill.name}
                 </SelectItem>

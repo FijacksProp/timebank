@@ -32,26 +32,30 @@ function SessionRow({ session }: { session: Session }) {
   return (
     <Link
       href={`/sessions/${session.id}`}
-      className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-all duration-200 hover:shadow-sm"
+      className="block rounded-lg border border-border bg-card p-4 transition-all duration-200 hover:shadow-sm"
     >
-      <Avatar className="h-10 w-10 shrink-0">
-        <AvatarFallback className="bg-secondary text-xs text-secondary-foreground">
-          {initialsFromName(session.partner)}
-        </AvatarFallback>
-      </Avatar>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-foreground">
-          {session.skill}
-        </p>
-        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{session.partner}</span>
-          <span>|</span>
-          <Calendar className="h-3 w-3" />
-          <span>{dateLabel}</span>
+      <div className="flex items-start gap-3">
+        <Avatar className="h-10 w-10 shrink-0">
+          <AvatarFallback className="bg-secondary text-xs text-secondary-foreground">
+            {initialsFromName(session.partner)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
+              {session.skill}
+            </p>
+            <StatusBadge status={session.status} />
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <span className="truncate">{session.partner}</span>
+            <span className="hidden sm:inline">|</span>
+            <Calendar className="h-3 w-3 shrink-0" />
+            <span className="max-w-full truncate">{dateLabel}</span>
+          </div>
         </div>
+        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
       </div>
-      <StatusBadge status={session.status} />
-      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
     </Link>
   )
 }

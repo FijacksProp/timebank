@@ -1,9 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Clock, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { apiRequest } from "@/lib/api"
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -13,7 +15,40 @@ const navLinks = [
 ]
 
 export function Navbar() {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [loadingAuth, setLoadingAuth] = useState(true)
+
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        await apiRequest("me/")
+        if (mounted) setIsAuthenticated(true)
+      } catch {
+        if (mounted) setIsAuthenticated(false)
+      } finally {
+        if (mounted) setLoadingAuth(false)
+      }
+    })()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  async function handleLogout() {
+    try {
+      await apiRequest("auth/logout/", { method: "POST" })
+    } catch {
+      // ignore and force UI refresh
+    } finally {
+      setIsAuthenticated(false)
+      setOpen(false)
+      router.push("/login")
+      router.refresh()
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
@@ -40,14 +75,22 @@ export function Navbar() {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Link href="/login">
-            <Button variant="ghost" size="sm">
-              Sign In
+          {!loadingAuth && isAuthenticated ? (
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              Logout
             </Button>
-          </Link>
-          <Link href="/signup">
-            <Button size="sm">Create Account</Button>
-          </Link>
+          ) : (
+            <>
+              <Link href="/login">
+                <Button variant="ghost" size="sm">
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/signup">
+                <Button size="sm">Create Account</Button>
+              </Link>
+            </>
+          )}
         </div>
 
         <button
@@ -73,16 +116,24 @@ export function Navbar() {
               </Link>
             ))}
             <div className="mt-2 flex flex-col gap-2 border-t border-border pt-3">
-              <Link href="/login" onClick={() => setOpen(false)}>
-                <Button variant="ghost" className="w-full" size="sm">
-                  Sign In
+              {!loadingAuth && isAuthenticated ? (
+                <Button variant="outline" className="w-full" size="sm" onClick={handleLogout}>
+                  Logout
                 </Button>
-              </Link>
-              <Link href="/signup" onClick={() => setOpen(false)}>
-                <Button className="w-full" size="sm">
-                  Create Account
-                </Button>
-              </Link>
+              ) : (
+                <>
+                  <Link href="/login" onClick={() => setOpen(false)}>
+                    <Button variant="ghost" className="w-full" size="sm">
+                      Sign In
+                    </Button>
+                  </Link>
+                  <Link href="/signup" onClick={() => setOpen(false)}>
+                    <Button className="w-full" size="sm">
+                      Create Account
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

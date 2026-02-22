@@ -23,6 +23,8 @@ class Session(models.Model):
     duration_min = models.PositiveSmallIntegerField(default=60)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_REQUESTED)
     meeting_link = models.URLField(blank=True)
+    teacher_confirmed_complete_at = models.DateTimeField(null=True, blank=True)
+    learner_confirmed_complete_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -42,3 +44,13 @@ class CreditLedger(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class SessionMessage(models.Model):
+    session = models.ForeignKey(Session, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey('accounts.Profile', on_delete=models.CASCADE, related_name='session_messages')
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
