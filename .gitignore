@@ -7,12 +7,14 @@ __pycache__/
 .venv/
 venv/
 env/
+.env
 
 # Django
 *.log
 db.sqlite3
 media/
 staticfiles/
+DEPLOYMENT.md
 
 # OS / Editor
 .DS_Store

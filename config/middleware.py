@@ -1,4 +1,5 @@
 from django.http import HttpResponse
+import os
 
 
 class SimpleCORSMiddleware:
@@ -14,7 +15,8 @@ class SimpleCORSMiddleware:
             response = self.get_response(request)
 
         origin = request.headers.get('Origin')
-        allowed = {'http://localhost:3000', 'http://127.0.0.1:3000'}
+        raw = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000')
+        allowed = {entry.strip() for entry in raw.split(',') if entry.strip()}
         if origin in allowed:
             response['Access-Control-Allow-Origin'] = origin
             response['Access-Control-Allow-Credentials'] = 'true'

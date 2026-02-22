@@ -1,3 +1,3 @@
 from django.contrib import admin
 
-# Register your models here.
+# No concrete models in matching app; matching results are computed at request time.
