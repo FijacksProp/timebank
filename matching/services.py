@@ -1,7 +1,10 @@
+from collections import defaultdict
+
 from django.db.models import Avg, Q, Sum
 
 from accounts.models import Profile
-from sessions_app.models import Session
+from reviews.models import Review
+from sessions_app.models import CreditLedger, Session
 from skills.models import ProfileSkillOffered, ProfileSkillWanted, Skill
 
 
@@ -17,18 +20,63 @@ def compute_matches_for_user(profile: Profile):
     if not my_wanted and not my_offered:
         return []
 
-    candidates = Profile.objects.exclude(id=profile.id)
+    candidates = list(Profile.objects.exclude(id=profile.id))
+    if not candidates:
+        return []
+
+    candidate_ids = [candidate.id for candidate in candidates]
     results = []
 
     my_wanted_ids = {entry.skill_id for entry in my_wanted}
     my_offered_ids = {entry.skill_id for entry in my_offered}
 
-    for candidate in candidates:
-        cand_offered = list(ProfileSkillOffered.objects.filter(profile=candidate))
-        cand_wanted = list(ProfileSkillWanted.objects.filter(profile=candidate))
+    offered_entries = ProfileSkillOffered.objects.filter(profile_id__in=candidate_ids).select_related('skill')
+    wanted_entries = ProfileSkillWanted.objects.filter(profile_id__in=candidate_ids).select_related('skill')
 
-        cand_offered_ids = {entry.skill_id for entry in cand_offered}
-        cand_wanted_ids = {entry.skill_id for entry in cand_wanted}
+    offered_ids_by_profile = defaultdict(set)
+    wanted_ids_by_profile = defaultdict(set)
+    all_skill_ids = set()
+
+    for entry in offered_entries:
+        offered_ids_by_profile[entry.profile_id].add(entry.skill_id)
+        all_skill_ids.add(entry.skill_id)
+
+    for entry in wanted_entries:
+        wanted_ids_by_profile[entry.profile_id].add(entry.skill_id)
+        all_skill_ids.add(entry.skill_id)
+
+    skill_name_map = {row['id']: row['name'] for row in Skill.objects.filter(id__in=all_skill_ids).values('id', 'name')}
+
+    rating_map = {
+        row['reviewee_id']: float(row['avg_rating'] or 0.0)
+        for row in Review.objects.filter(reviewee_id__in=candidate_ids).values('reviewee_id').annotate(avg_rating=Avg('rating'))
+    }
+
+    credit_map = {
+        row['profile_id']: int(row['total'] or 0)
+        for row in CreditLedger.objects.filter(profile_id__in=candidate_ids).values('profile_id').annotate(total=Sum('delta'))
+    }
+
+    completed_stats = defaultdict(lambda: {'count': 0, 'duration_min': 0})
+    completed_sessions = Session.objects.filter(
+        status=Session.STATUS_COMPLETED
+    ).filter(Q(teacher_id__in=candidate_ids) | Q(learner_id__in=candidate_ids)).values('teacher_id', 'learner_id', 'duration_min')
+
+    for row in completed_sessions:
+        duration = int(row['duration_min'] or 0)
+        teacher_id = row['teacher_id']
+        learner_id = row['learner_id']
+
+        completed_stats[teacher_id]['count'] += 1
+        completed_stats[teacher_id]['duration_min'] += duration
+
+        if learner_id != teacher_id:
+            completed_stats[learner_id]['count'] += 1
+            completed_stats[learner_id]['duration_min'] += duration
+
+    for candidate in candidates:
+        cand_offered_ids = offered_ids_by_profile.get(candidate.id, set())
+        cand_wanted_ids = wanted_ids_by_profile.get(candidate.id, set())
 
         reciprocal_a = my_wanted_ids.intersection(cand_offered_ids)
         reciprocal_b = my_offered_ids.intersection(cand_wanted_ids)
@@ -42,17 +90,16 @@ def compute_matches_for_user(profile: Profile):
         lang_overlap = len(profile.language_set().intersection(candidate.language_set()))
         lang_score = min(15, lang_overlap * 7)
 
-        rating_avg = candidate.reviews_received.aggregate(avg=Avg('rating'))['avg'] or 0
+        rating_avg = rating_map.get(candidate.id, 0.0)
         confidence_score = min(10, int(rating_avg * 2))
 
         total = reciprocal_score + tz_score + lvl_score + lang_score + confidence_score
-
         if total == 0:
             continue
 
-        reciprocal_skills = list(Skill.objects.filter(id__in=reciprocal_ids).values('id', 'name').order_by('name'))
-        offered_skills = list(Skill.objects.filter(id__in=sorted(list(cand_offered_ids))).values('id', 'name').order_by('name'))
-        wanted_skills = list(Skill.objects.filter(id__in=sorted(list(cand_wanted_ids))).values('id', 'name').order_by('name'))
+        reciprocal_skills = [{'id': sid, 'name': skill_name_map.get(sid, f'Skill {sid}')} for sid in sorted(reciprocal_ids)]
+        offered_skills = [{'id': sid, 'name': skill_name_map.get(sid, f'Skill {sid}')} for sid in sorted(cand_offered_ids)]
+        wanted_skills = [{'id': sid, 'name': skill_name_map.get(sid, f'Skill {sid}')} for sid in sorted(cand_wanted_ids)]
 
         reasons = []
         if reciprocal_count:
@@ -66,23 +113,17 @@ def compute_matches_for_user(profile: Profile):
         if confidence_score:
             reasons.append('Strong review history')
 
-        completed_sessions = Session.objects.filter(
-            Q(teacher=candidate) | Q(learner=candidate),
-            status=Session.STATUS_COMPLETED,
-        ).count()
-        hours_traded = Session.objects.filter(
-            Q(teacher=candidate) | Q(learner=candidate),
-            status=Session.STATUS_COMPLETED,
-        ).aggregate(total=Sum('duration_min'))['total'] or 0
-        hours_traded = round(hours_traded / 60, 1)
-        credit_balance = candidate.credit_entries.aggregate(total=Sum('delta'))['total'] or 0
+        candidate_stats = completed_stats.get(candidate.id, {'count': 0, 'duration_min': 0})
+        completed_sessions_count = candidate_stats['count']
+        hours_traded = round((candidate_stats['duration_min'] or 0) / 60, 1)
+        credit_balance = credit_map.get(candidate.id, 0)
         rating_avg_rounded = round(float(rating_avg), 1) if rating_avg else 0.0
 
         top_skill = reciprocal_skills[0]['name'] if reciprocal_skills else (
             offered_skills[0]['name'] if offered_skills else "General skills"
         )
         tz_note = "same timezone" if profile.timezone == candidate.timezone else "timezone overlap"
-        match_blurb = f"Shared skill: {top_skill} • {total}% match • {tz_note}"
+        match_blurb = f"Shared skill: {top_skill} | {total}% match | {tz_note}"
 
         results.append(
             {
@@ -100,7 +141,7 @@ def compute_matches_for_user(profile: Profile):
                 'wanted_skills': wanted_skills,
                 'profile_stats': {
                     'hours_traded': hours_traded,
-                    'completed_sessions': completed_sessions,
+                    'completed_sessions': completed_sessions_count,
                     'reputation_score': int(round(rating_avg_rounded * 20)),
                     'rating_avg': rating_avg_rounded,
                     'credit_balance': credit_balance,

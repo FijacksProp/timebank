@@ -5,12 +5,15 @@ from django.views.decorators.http import require_GET, require_http_methods
 from django.db.models import Avg, Count, Q, Sum
 from django.utils import timezone
 from datetime import timedelta
+import logging
 
 from accounts.api_utils import api_login_required, json_bad_request, parse_json_body
 from matching.services import compute_matches_for_user
 from sessions_app.models import Session, CreditLedger
 from skills.models import Skill
 from reviews.models import Review
+
+logger = logging.getLogger(__name__)
 
 
 @require_GET
@@ -188,7 +191,11 @@ def dashboard_api(request):
 @api_login_required
 def matches_api(request):
     profile = request.user.profile
-    matches = compute_matches_for_user(profile)
+    try:
+        matches = compute_matches_for_user(profile)
+    except Exception:
+        logger.exception("matches_api failed for profile_id=%s", profile.id)
+        return JsonResponse({'matches': [], 'warning': 'match_engine_temporarily_unavailable'})
 
     payload = [
         {
