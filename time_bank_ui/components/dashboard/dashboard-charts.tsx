@@ -62,7 +62,7 @@ export function DashboardCharts({ sessionMixData, creditData }: ChartsProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Credit Trend</CardTitle>
+          <CardTitle className="text-base">Balance Over Time</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-64">

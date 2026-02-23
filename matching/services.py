@@ -1,6 +1,7 @@
-from django.db.models import Avg, Sum
+from django.db.models import Avg, Q, Sum
 
 from accounts.models import Profile
+from sessions_app.models import Session
 from skills.models import ProfileSkillOffered, ProfileSkillWanted, Skill
 
 
@@ -65,14 +66,45 @@ def compute_matches_for_user(profile: Profile):
         if confidence_score:
             reasons.append('Strong review history')
 
+        completed_sessions = Session.objects.filter(
+            Q(teacher=candidate) | Q(learner=candidate),
+            status=Session.STATUS_COMPLETED,
+        ).count()
+        hours_traded = Session.objects.filter(
+            Q(teacher=candidate) | Q(learner=candidate),
+            status=Session.STATUS_COMPLETED,
+        ).aggregate(total=Sum('duration_min'))['total'] or 0
+        hours_traded = round(hours_traded / 60, 1)
+        credit_balance = candidate.credit_entries.aggregate(total=Sum('delta'))['total'] or 0
+        rating_avg_rounded = round(float(rating_avg), 1) if rating_avg else 0.0
+
+        top_skill = reciprocal_skills[0]['name'] if reciprocal_skills else (
+            offered_skills[0]['name'] if offered_skills else "General skills"
+        )
+        tz_note = "same timezone" if profile.timezone == candidate.timezone else "timezone overlap"
+        match_blurb = f"Shared skill: {top_skill} • {total}% match • {tz_note}"
+
         results.append(
             {
                 'profile': candidate,
                 'score': total,
                 'reasons': reasons[:5],
+                'match_blurb': match_blurb,
+                'match_details': {
+                    'shared_skill': top_skill,
+                    'score_percent': total,
+                    'timezone_note': tz_note,
+                },
                 'reciprocal_skills': reciprocal_skills,
                 'offered_skills': offered_skills,
                 'wanted_skills': wanted_skills,
+                'profile_stats': {
+                    'hours_traded': hours_traded,
+                    'completed_sessions': completed_sessions,
+                    'reputation_score': int(round(rating_avg_rounded * 20)),
+                    'rating_avg': rating_avg_rounded,
+                    'credit_balance': credit_balance,
+                },
             }
         )
 
