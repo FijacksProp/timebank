@@ -33,7 +33,7 @@ type DashboardPayload = {
     wanted_skills: string[];
   };
   credit_balance: number;
-  credit_stats: {
+  credit_stats?: {
     earned_total: number;
     used_total: number;
     current_balance: number;
@@ -52,7 +52,7 @@ type DashboardPayload = {
     labels: string[];
     values: number[];
   };
-  balance_chart: {
+  balance_chart?: {
     labels: string[];
     values: number[];
   };
@@ -70,7 +70,7 @@ type DashboardPayload = {
     status: string;
     scheduled_at: string | null;
   }>;
-  recent_activity: Array<{
+  recent_activity?: Array<{
     type: string;
     text: string;
     created_at: string;
@@ -109,10 +109,15 @@ export default function DashboardPage() {
 
   const kpis = useMemo(() => {
     if (!data) return []
+    const creditStats = data.credit_stats || {
+      earned_total: Math.max(data.credit_balance, 0),
+      used_total: 0,
+      current_balance: data.credit_balance,
+    }
     return [
-      { title: "Current Balance", value: data.credit_stats.current_balance, icon: Wallet },
-      { title: "Credits Earned", value: data.credit_stats.earned_total, icon: ArrowUpCircle },
-      { title: "Credits Used", value: data.credit_stats.used_total, icon: ArrowDownCircle },
+      { title: "Current Balance", value: creditStats.current_balance, icon: Wallet },
+      { title: "Credits Earned", value: creditStats.earned_total, icon: ArrowUpCircle },
+      { title: "Credits Used", value: creditStats.used_total, icon: ArrowDownCircle },
       {
         title: "Average Rating",
         value: data.rating !== null ? data.rating.toFixed(1) : "No rating",
@@ -131,7 +136,11 @@ export default function DashboardPage() {
     [data]
   )
   const balanceData = useMemo(
-    () => data?.balance_chart.labels.map((month, index) => ({ month, credits: data.balance_chart.values[index] || 0 })) || [],
+    () => {
+      const chart = data?.balance_chart || data?.credits_chart
+      if (!chart) return []
+      return chart.labels.map((month, index) => ({ month, credits: chart.values[index] || 0 }))
+    },
     [data]
   )
 
@@ -170,11 +179,11 @@ export default function DashboardPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {data.recent_activity.length === 0 ? (
+                    {(data.recent_activity || []).length === 0 ? (
                       <p className="text-sm text-muted-foreground">No recent activity yet.</p>
                     ) : (
                       <div className="space-y-3">
-                        {data.recent_activity.map((item, index) => (
+                        {(data.recent_activity || []).map((item, index) => (
                           <div key={`${item.type}-${item.created_at}-${index}`} className="rounded-md border border-border p-3">
                             <p className="text-sm text-foreground">{item.text}</p>
                             <p className="mt-1 text-xs text-muted-foreground">
@@ -192,18 +201,29 @@ export default function DashboardPage() {
                     <CardTitle className="text-base">Credit Snapshot</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
+                    {(() => {
+                      const creditStats = data.credit_stats || {
+                        earned_total: Math.max(data.credit_balance, 0),
+                        used_total: 0,
+                        current_balance: data.credit_balance,
+                      }
+                      return (
+                        <>
                     <div className="rounded-md border border-border p-3">
                       <p className="text-xs uppercase tracking-wider text-muted-foreground">Total Earned</p>
-                      <p className="text-2xl font-semibold text-foreground">+{data.credit_stats.earned_total}</p>
+                      <p className="text-2xl font-semibold text-foreground">+{creditStats.earned_total}</p>
                     </div>
                     <div className="rounded-md border border-border p-3">
                       <p className="text-xs uppercase tracking-wider text-muted-foreground">Total Used</p>
-                      <p className="text-2xl font-semibold text-foreground">-{data.credit_stats.used_total}</p>
+                      <p className="text-2xl font-semibold text-foreground">-{creditStats.used_total}</p>
                     </div>
                     <div className="rounded-md border border-border p-3">
                       <p className="text-xs uppercase tracking-wider text-muted-foreground">Current Balance</p>
-                      <p className="text-2xl font-semibold text-foreground">{data.credit_stats.current_balance}</p>
+                      <p className="text-2xl font-semibold text-foreground">{creditStats.current_balance}</p>
                     </div>
+                        </>
+                      )
+                    })()}
                   </CardContent>
                 </Card>
               </div>
