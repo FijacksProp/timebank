@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
@@ -11,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { CheckCircle2, ArrowRight } from "lucide-react"
+import { CheckCircle2, ArrowRight, Clock3, Trophy, Star, Coins } from "lucide-react"
 
 interface MatchCardProps {
   profileId: number
@@ -20,6 +21,22 @@ interface MatchCardProps {
   score: number
   bio: string
   reasons: string[]
+  level: string
+  timezone: string
+  languages: string
+  matchBlurb: string
+  matchDetails: {
+    shared_skill: string
+    score_percent: number
+    timezone_note: string
+  }
+  profileStats: {
+    hours_traded: number
+    completed_sessions: number
+    reputation_score: number
+    rating_avg: number
+    credit_balance: number
+  }
   offeredSkills: Array<{ id: number; name: string }>
   wantedSkills: Array<{ id: number; name: string }>
   reciprocalSkills: Array<{ id: number; name: string }>
@@ -33,6 +50,12 @@ export function MatchCard({
   score,
   bio,
   reasons,
+  level,
+  timezone,
+  languages,
+  matchBlurb,
+  matchDetails,
+  profileStats,
   offeredSkills,
   wantedSkills,
   reciprocalSkills,
@@ -63,7 +86,85 @@ export function MatchCard({
               </AvatarFallback>
             </Avatar>
             <div>
-              <h3 className="text-base font-bold text-foreground">{name}</h3>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <button type="button" className="text-left text-base font-bold text-foreground hover:text-accent hover:underline">
+                    {name}
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle>{name}</DialogTitle>
+                    <DialogDescription>
+                      {bio}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-md border border-border p-3 text-sm">
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground">Level</p>
+                      <p className="font-semibold text-foreground">{level}</p>
+                    </div>
+                    <div className="rounded-md border border-border p-3 text-sm">
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground">Timezone</p>
+                      <p className="font-semibold text-foreground">{timezone}</p>
+                    </div>
+                    <div className="rounded-md border border-border p-3 text-sm sm:col-span-2">
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground">Languages</p>
+                      <p className="font-semibold text-foreground">{languages || "Not set"}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-md border border-border p-3 text-sm">
+                      <p className="mb-1 flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
+                        <Clock3 className="h-3.5 w-3.5" /> Hours Traded
+                      </p>
+                      <p className="font-semibold text-foreground">{profileStats.hours_traded}h</p>
+                    </div>
+                    <div className="rounded-md border border-border p-3 text-sm">
+                      <p className="mb-1 flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
+                        <Trophy className="h-3.5 w-3.5" /> Reputation
+                      </p>
+                      <p className="font-semibold text-foreground">{profileStats.reputation_score}/100</p>
+                    </div>
+                    <div className="rounded-md border border-border p-3 text-sm">
+                      <p className="mb-1 flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
+                        <Star className="h-3.5 w-3.5" /> Rating
+                      </p>
+                      <p className="font-semibold text-foreground">{profileStats.rating_avg.toFixed(1)} / 5</p>
+                    </div>
+                    <div className="rounded-md border border-border p-3 text-sm">
+                      <p className="mb-1 flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
+                        <Coins className="h-3.5 w-3.5" /> Credit Balance
+                      </p>
+                      <p className="font-semibold text-foreground">{profileStats.credit_balance}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Can Teach</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {offeredSkills.map((skill) => (
+                        <span key={skill.id} className="rounded-md bg-secondary px-2 py-0.5 text-xs text-foreground">
+                          {skill.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Wants To Learn</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {wantedSkills.map((skill) => (
+                        <span key={skill.id} className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
+                          {skill.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
               <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
                 {bio}
               </p>
@@ -78,6 +179,7 @@ export function MatchCard({
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Why you match
           </p>
+          <p className="mb-2 text-sm text-foreground">{matchBlurb}</p>
           <ul className="flex flex-col gap-1.5">
             {reasons.map((r) => (
               <li key={r} className="flex items-start gap-2 text-sm text-foreground">
@@ -91,6 +193,9 @@ export function MatchCard({
               Mutual fit: {reciprocalSkills.map((s) => s.name).join(", ")}
             </p>
           )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            Shared interest: {matchDetails.shared_skill} | {matchDetails.score_percent}% match | {matchDetails.timezone_note}
+          </p>
         </div>
 
         <div className="mt-4 space-y-2">

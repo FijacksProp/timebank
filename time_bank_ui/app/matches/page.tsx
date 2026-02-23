@@ -20,8 +20,24 @@ type MatchItem = {
   profile_id: number;
   name: string;
   bio: string;
+  level: string;
+  timezone: string;
+  languages: string;
   score: number;
   reasons: string[];
+  match_blurb: string;
+  match_details: {
+    shared_skill: string;
+    score_percent: number;
+    timezone_note: string;
+  };
+  profile_stats: {
+    hours_traded: number;
+    completed_sessions: number;
+    reputation_score: number;
+    rating_avg: number;
+    credit_balance: number;
+  };
   reciprocal_skills: Array<{ id: number; name: string }>;
   offered_skills: Array<{ id: number; name: string }>;
   wanted_skills: Array<{ id: number; name: string }>;
@@ -145,6 +161,12 @@ export default function MatchesPage() {
                   score={m.score}
                   bio={m.bio}
                   reasons={m.reasons}
+                  level={m.level}
+                  timezone={m.timezone}
+                  languages={m.languages}
+                  matchBlurb={m.match_blurb}
+                  matchDetails={m.match_details}
+                  profileStats={m.profile_stats}
                   offeredSkills={m.offered_skills}
                   wantedSkills={m.wanted_skills}
                   reciprocalSkills={m.reciprocal_skills}
